@@ -25,6 +25,11 @@ program
   .option('--file <path>', 'scope to a single conflicted file')
   .action(async (options: { color?: boolean; file?: string }) => {
     if (options.color === false) chalk.level = 0;
+    if (!process.env.ANTHROPIC_API_KEY) {
+      log.error('ANTHROPIC_API_KEY is not set. Add it to your environment or a .env file.');
+      process.exitCode = 1;
+      return;
+    }
     try {
       await runExplain({ file: options.file });
     } catch (error) {

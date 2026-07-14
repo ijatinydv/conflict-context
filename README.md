@@ -56,3 +56,31 @@ Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`) in your environment
 or a `.env` file first — see `.env.example`.
 
 > `conflict-context resolve` (propose and apply merges) lands in phase 2.
+
+## Demo
+
+Reproduce the sample scenario in a throwaway repo (useful for recording a demo):
+
+```bash
+mkdir cc-demo && cd cc-demo && git init -b main
+git config user.email you@example.com && git config user.name You
+
+printf 'function parse(input) {\n  return input.trim();\n}\n' > parser.js
+git add parser.js && git commit -m "feat: add basic parser"
+
+git checkout -b feature
+printf 'function parse(input) {\n  return input.trim().toLowerCase();\n}\n' > parser.js
+git commit -am "feat: normalize parser output to lowercase"
+
+git checkout main
+printf 'function parse(input) {\n  if (input == null) return "";\n  return input.trim();\n}\n' > parser.js
+git commit -am "fix: guard parser against null input"
+
+git merge feature   # conflict on parser.js
+
+export ANTHROPIC_API_KEY=sk-...   # your key
+conflict-context explain
+```
+
+The two sides changed the same function for unrelated reasons (a null-guard vs.
+output normalization) — a case where the *why* matters more than the diff.
