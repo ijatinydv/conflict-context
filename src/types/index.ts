@@ -39,3 +39,9 @@ export interface Conflict {
   operation: 'merge' | 'rebase';
   files: ConflictedFile[];
 }
+
+/** Commit history behind each side of a single conflict hunk. */
+export interface HunkContext {
+  headCommits: CommitInfo[];
+  incomingCommits: CommitInfo[];
+}

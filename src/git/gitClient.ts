@@ -78,6 +78,21 @@ export async function getConflictedFiles(cwd: string = process.cwd()): Promise<s
   return stdout.split('\n').map((l) => l.trim()).filter(Boolean);
 }
 
+/**
+ * Identifies the in-progress operation and the ref naming the incoming side of
+ * the conflict. For a merge that is MERGE_HEAD; during a rebase the commit
+ * being replayed is REBASE_HEAD.
+ */
+export async function getConflictInfo(
+  cwd: string = process.cwd(),
+): Promise<{ operation: 'merge' | 'rebase'; incomingRef: string }> {
+  const dir = await gitDir(cwd);
+  if (await exists(join(dir, 'MERGE_HEAD'))) {
+    return { operation: 'merge', incomingRef: 'MERGE_HEAD' };
+  }
+  return { operation: 'rebase', incomingRef: 'REBASE_HEAD' };
+}
+
 /** Reads the working-tree file, which for a conflicted file still holds markers. */
 export async function getFileContent(
   filePath: string,
