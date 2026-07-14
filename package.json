@@ -14,7 +14,13 @@
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\""
   },
-  "keywords": ["git", "merge", "conflict", "ai", "cli"],
+  "keywords": [
+    "git",
+    "merge",
+    "conflict",
+    "ai",
+    "cli"
+  ],
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",
@@ -26,11 +32,14 @@
     "web-tree-sitter": "^0.24.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/node": "^22.7.0",
     "eslint": "^9.11.0",
+    "eslint-config-prettier": "^9.1.2",
     "prettier": "^3.3.3",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2",
+    "typescript-eslint": "^8.64.0",
     "vitest": "^2.1.1"
   }
 }
