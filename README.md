@@ -21,7 +21,38 @@ npm install -g conflict-context
 
 ## Usage
 
+Run it from inside a repo that is mid-merge or mid-rebase:
+
 ```
 cd your-repo-with-conflicts
-conflict-context resolve
+conflict-context explain
 ```
+
+For each conflicted hunk it prints a plain-English narrative of what each side
+was trying to do, then the raw conflicting code for reference:
+
+```
+────────────────────────────────────────────────────────────
+src/auth.js  (lines 42-51)
+Both sides rewrote the token check. HEAD tightened it to reject expired
+tokens (commit "harden session expiry"), while the incoming branch switched
+to the new async verifier (commit "move auth to jose"). They touch the same
+lines for different reasons — the fixes are complementary, not competing.
+
+Conflicting code:
+<<<<<<< HEAD
+  if (isExpired(token)) return null;
+=======
+  if (await verify(token)) return session;
+>>>>>>> incoming
+```
+
+Flags:
+
+- `--file <path>` — scope to a single conflicted file
+- `--no-color` — disable colored output
+
+Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`) in your environment
+or a `.env` file first — see `.env.example`.
+
+> `conflict-context resolve` (propose and apply merges) lands in phase 2.
