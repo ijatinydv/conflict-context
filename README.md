@@ -65,6 +65,23 @@ import-ordering, and rename conflicts) and asks you to **[a]ccept**,
 written to disk yet — auto-apply lands in phase 3. Takes the same
 `--file`/`--no-color` flags as `explain`.
 
+```
+────────────────────────────────────────────────────────────
+logic.js  (lines 2-6)
+Main added a 20% tax to totals while the feature branch rounds them —
+independent changes to the same return statement.
+
+Proposed resolution:
+  return Math.round((a + b) * 1.2);
+Confidence: medium — Both intents combine cleanly but order of operations
+is assumed. [logic-conflict]
+[a]ccept / [e]dit manually / [s]kip? a
+────────────────────────────────────────────────────────────
+Summary
+  accept  format.js:1-7 (high)
+  accept  logic.js:2-6 (medium)
+```
+
 Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`) in your environment
 or a `.env` file first — see `.env.example`.
 
