@@ -45,3 +45,11 @@ export interface HunkContext {
   headCommits: CommitInfo[];
   incomingCommits: CommitInfo[];
 }
+
+/** LLM-proposed merge for one hunk, parsed from a strict-JSON response. */
+export interface Resolution {
+  narrative: string;
+  proposedCode: string;
+  confidence: 'high' | 'medium' | 'low';
+  confidenceReason: string;
+}

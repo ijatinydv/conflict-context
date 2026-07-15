@@ -1,5 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
-import { buildNarrativePrompt, getNarrative, type NarrativeClient } from '../../src/core/llm.js';
+import {
+  buildNarrativePrompt,
+  buildResolutionPrompt,
+  getNarrative,
+  getResolution,
+  LLMResponseError,
+  type NarrativeClient,
+} from '../../src/core/llm.js';
+import type { EnclosingContext } from '../../src/core/chunker.js';
 import type { ConflictHunk, HunkContext } from '../../src/types/index.js';
 
 const hunk: ConflictHunk = {
@@ -50,5 +58,72 @@ describe('getNarrative', () => {
     expect(create).toHaveBeenCalledOnce();
     const body = create.mock.calls[0]![0];
     expect(body.messages[0].content).toContain('hey from main');
+  });
+});
+
+const astContext: EnclosingContext = {
+  nodeType: 'function_declaration',
+  startLine: 1,
+  endLine: 3,
+  code: 'function greet() {\n  return "hi";\n}',
+};
+
+const mockClient = (text: string): NarrativeClient =>
+  ({
+    messages: { create: vi.fn().mockResolvedValue({ content: [{ type: 'text', text }] }) },
+  }) as unknown as NarrativeClient;
+
+const validResolution = {
+  narrative: 'Both sides changed the greeting.',
+  proposedCode: '  return "hello";',
+  confidence: 'medium',
+  confidenceReason: 'Both intents preserved but untested.',
+};
+
+describe('buildResolutionPrompt', () => {
+  it('includes AST context, both sides, and the JSON contract', () => {
+    const prompt = buildResolutionPrompt(hunk, context, astContext);
+    expect(prompt).toContain('function_declaration');
+    expect(prompt).toContain('hey from main');
+    expect(prompt).toContain('hello from feature');
+    expect(prompt).toContain('"confidence"');
+    expect(prompt).toContain('ONLY a JSON object');
+  });
+
+  it('includes the heuristic hint when given', () => {
+    const prompt = buildResolutionPrompt(hunk, context, astContext, 'formatting-only');
+    expect(prompt).toContain('formatting-only');
+  });
+});
+
+describe('getResolution', () => {
+  it('parses a well-formed JSON response', async () => {
+    const resolution = await getResolution(
+      hunk,
+      context,
+      astContext,
+      undefined,
+      mockClient(JSON.stringify(validResolution)),
+    );
+    expect(resolution).toEqual(validResolution);
+  });
+
+  it('strips markdown fences before parsing', async () => {
+    const fenced = '```json\n' + JSON.stringify(validResolution) + '\n```';
+    const resolution = await getResolution(hunk, context, astContext, undefined, mockClient(fenced));
+    expect(resolution).toEqual(validResolution);
+  });
+
+  it('throws LLMResponseError with the raw response on invalid JSON', async () => {
+    const promise = getResolution(hunk, context, astContext, undefined, mockClient('so sorry, no'));
+    await expect(promise).rejects.toBeInstanceOf(LLMResponseError);
+    await promise.catch((e: LLMResponseError) => expect(e.rawResponse).toBe('so sorry, no'));
+  });
+
+  it('throws LLMResponseError when fields are missing or mistyped', async () => {
+    const missing = JSON.stringify({ narrative: 'x', confidence: 'very-high' });
+    await expect(
+      getResolution(hunk, context, astContext, undefined, mockClient(missing)),
+    ).rejects.toBeInstanceOf(LLMResponseError);
   });
 });
