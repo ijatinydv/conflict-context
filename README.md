@@ -52,10 +52,21 @@ Flags:
 - `--file <path>` — scope to a single conflicted file
 - `--no-color` — disable colored output
 
+### resolve
+
+```
+conflict-context resolve
+```
+
+For each hunk it proposes a merged resolution with a confidence score
+(`high`/`medium`/`low`, grounded by offline heuristics for formatting-only,
+import-ordering, and rename conflicts) and asks you to **[a]ccept**,
+**[e]dit**, or **[s]kip**. Choices are summarized at the end; nothing is
+written to disk yet — auto-apply lands in phase 3. Takes the same
+`--file`/`--no-color` flags as `explain`.
+
 Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`) in your environment
 or a `.env` file first — see `.env.example`.
-
-> `conflict-context resolve` (propose and apply merges) lands in phase 2.
 
 ## Demo
 
