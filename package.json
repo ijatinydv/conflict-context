@@ -29,6 +29,7 @@
     "dotenv": "^16.4.5",
     "execa": "^9.4.0",
     "ora": "^8.1.0",
+    "tree-sitter-typescript": "^0.23.2",
     "web-tree-sitter": "^0.24.3"
   },
   "devDependencies": {
