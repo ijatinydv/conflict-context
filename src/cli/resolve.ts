@@ -28,6 +28,7 @@ import { getEnclosingContext, type EnclosingContext } from '../core/chunker.js';
 import { getResolution } from '../core/llm.js';
 import { classifyHunk, applyConfidenceFloor } from '../core/confidence.js';
 import { applyHunkEdits, hasConflictMarkers, type HunkEdit } from '../core/applier.js';
+import { renderDiff } from '../utils/diffRender.js';
 import { log } from '../utils/logger.js';
 import type { ConflictHunk, HunkContext, Resolution } from '../types/index.js';
 
@@ -56,6 +57,8 @@ export interface ResolveOptions {
   /** Apply hunks at or above minConfidence without prompting. */
   auto?: boolean;
   minConfidence?: Resolution['confidence'];
+  /** Show what would happen without writing files, staging, or snapshotting. */
+  dryRun?: boolean;
 }
 
 export interface HunkDecision {
@@ -135,6 +138,7 @@ export async function runResolve(options: ResolveOptions = {}): Promise<HunkDeci
   const ask = options.ask ?? askViaReadline;
   const edit = options.edit ?? editViaEditor;
   const useSpinner = options.spinner ?? true;
+  const dryRun = options.dryRun === true;
 
   if (!(await isMergeOrRebaseInProgress(cwd))) {
     throw new Error('No merge or rebase in progress — nothing to resolve.');
@@ -143,105 +147,144 @@ export async function runResolve(options: ResolveOptions = {}): Promise<HunkDeci
   let files = await getConflictedFiles(cwd);
   if (options.file) files = files.filter((f) => f === options.file);
 
-  if (files.length > 0) {
+  if (files.length > 0 && !dryRun) {
     await createSnapshot(cwd);
     log.info('Safety snapshot created — `conflict-context undo` restores the pre-resolve state.');
   }
+  if (dryRun) log.info('Dry run: no files will be written, staged, or snapshotted.');
+
+  // Ctrl+C safety: files are only written in one shot after all their hunks
+  // are decided, so an interrupt simply abandons the in-flight file — nothing
+  // is ever half-written, and the snapshot (when not dry-running) still holds.
+  let interrupted = false;
+  const onSigint = () => {
+    interrupted = true;
+    log.warn('\nInterrupted — finishing without writing the current file. Snapshot is intact.');
+  };
+  process.on('SIGINT', onSigint);
 
   const decisions: HunkDecision[] = [];
 
-  for (const path of files) {
-    const content = await getFileContent(path, cwd);
+  try {
+    for (const [fileIndex, path] of files.entries()) {
+      if (interrupted) break;
+      const content = await getFileContent(path, cwd);
 
-    let hunks: ConflictHunk[];
-    try {
-      hunks = parseConflicts(content);
-    } catch (error) {
-      const reason = error instanceof ConflictParseError ? error.message : String(error);
-      log.warn(`Skipping ${path}: ${reason}`);
-      continue;
-    }
-    if (hunks.length === 0) continue;
-
-    const context = await getHunkContext({ path, content, hunks }, cwd);
-    const edits: HunkEdit[] = [];
-
-    for (const hunk of hunks) {
-      log.rule();
-      log.heading(`${path}  (lines ${hunk.startLine}-${hunk.endLine})`);
-
-      const classification = classifyHunk(hunk);
-      const astContext = await getEnclosingContext(join(cwd, path), hunk.startLine, hunk.endLine);
-
-      const spinner = useSpinner ? ora('Proposing resolution…').start() : undefined;
-      let resolution: Resolution;
+      let hunks: ConflictHunk[];
       try {
-        resolution = await propose(hunk, context, astContext, classification);
-        spinner?.stop();
+        hunks = parseConflicts(content);
       } catch (error) {
-        spinner?.fail('Could not propose a resolution');
-        log.error(`  ${error instanceof Error ? error.message : String(error)}`);
+        const reason = error instanceof ConflictParseError ? error.message : String(error);
+        log.warn(`Skipping ${path}: ${reason}`);
+        continue;
+      }
+      if (hunks.length === 0) continue;
+
+      log.info(
+        `\nFile ${fileIndex + 1}/${files.length}: ${path} — ${hunks.length} conflicted hunk(s)`,
+      );
+
+      const context = await getHunkContext({ path, content, hunks }, cwd);
+      const edits: HunkEdit[] = [];
+
+      for (const [hunkIndex, hunk] of hunks.entries()) {
+        if (interrupted) break;
+        log.rule();
+        log.heading(
+          `${path}  (lines ${hunk.startLine}-${hunk.endLine}) — hunk ${hunkIndex + 1}/${hunks.length}`,
+        );
+
+        const classification = classifyHunk(hunk);
+        const astContext = await getEnclosingContext(join(cwd, path), hunk.startLine, hunk.endLine);
+
+        const spinner = useSpinner ? ora('Proposing resolution…').start() : undefined;
+        let resolution: Resolution;
+        try {
+          resolution = await propose(hunk, context, astContext, classification);
+          spinner?.stop();
+        } catch (error) {
+          spinner?.fail('Could not propose a resolution');
+          log.error(`  ${error instanceof Error ? error.message : String(error)}`);
+          decisions.push({
+            file: path,
+            startLine: hunk.startLine,
+            endLine: hunk.endLine,
+            choice: 'skip',
+            confidence: 'low',
+            applied: false,
+          });
+          continue;
+        }
+
+        resolution = applyConfidenceFloor(resolution, classification);
+
+        log.narrative(resolution.narrative);
+        console.log();
+        log.info(
+          renderDiff(
+            'Proposed vs OURS (HEAD):',
+            hunk.headOriginLines.join('\n'),
+            resolution.proposedCode,
+          ),
+        );
+        log.info(
+          renderDiff(
+            'Proposed vs THEIRS (incoming):',
+            hunk.incomingLines.join('\n'),
+            resolution.proposedCode,
+          ),
+        );
+        const paint = CONFIDENCE_COLOR[resolution.confidence];
+        log.info(
+          `Confidence: ${paint(resolution.confidence)} — ${resolution.confidenceReason} [${classification}]`,
+        );
+
+        const minConfidence = options.minConfidence ?? 'high';
+        const autoApplicable =
+          options.auto === true &&
+          CONFIDENCE_RANK[resolution.confidence] >= CONFIDENCE_RANK[minConfidence];
+
+        let choice: Choice;
+        if (autoApplicable) {
+          choice = 'auto';
+          log.info(`Auto-applied (>= ${minConfidence} confidence).`);
+        } else {
+          choice = await promptChoice(ask);
+        }
+
+        let replacement = resolution.proposedCode;
+        if (choice === 'edit') replacement = await edit(resolution.proposedCode);
+        if (choice !== 'skip') {
+          edits.push({ startLine: hunk.startLine, endLine: hunk.endLine, replacement });
+        }
+
         decisions.push({
           file: path,
           startLine: hunk.startLine,
           endLine: hunk.endLine,
-          choice: 'skip',
-          confidence: 'low',
-          applied: false,
+          choice,
+          confidence: resolution.confidence,
+          applied: choice !== 'skip' && !dryRun,
         });
-        continue;
       }
 
-      resolution = applyConfidenceFloor(resolution, classification);
-
-      log.narrative(resolution.narrative);
-      console.log();
-      log.info('Proposed resolution:');
-      log.code(resolution.proposedCode);
-      const paint = CONFIDENCE_COLOR[resolution.confidence];
-      log.info(
-        `Confidence: ${paint(resolution.confidence)} — ${resolution.confidenceReason} [${classification}]`,
-      );
-
-      const minConfidence = options.minConfidence ?? 'high';
-      const autoApplicable =
-        options.auto === true &&
-        CONFIDENCE_RANK[resolution.confidence] >= CONFIDENCE_RANK[minConfidence];
-
-      let choice: Choice;
-      if (autoApplicable) {
-        choice = 'auto';
-        log.info(`Auto-applied (>= ${minConfidence} confidence).`);
-      } else {
-        choice = await promptChoice(ask);
-      }
-
-      let replacement = resolution.proposedCode;
-      if (choice === 'edit') replacement = await edit(resolution.proposedCode);
-      if (choice !== 'skip') {
-        edits.push({ startLine: hunk.startLine, endLine: hunk.endLine, replacement });
-      }
-
-      decisions.push({
-        file: path,
-        startLine: hunk.startLine,
-        endLine: hunk.endLine,
-        choice,
-        confidence: resolution.confidence,
-        applied: choice !== 'skip',
-      });
-    }
-
-    if (edits.length > 0) {
-      const resolved = applyHunkEdits(content, edits);
-      await writeFileContent(path, resolved, cwd);
-      if (!hasConflictMarkers(resolved)) {
-        await stageFile(path, cwd);
-        log.info(`${path}: all hunks resolved — staged with git add.`);
-      } else {
-        log.warn(`${path}: some hunks skipped — conflict markers remain, file not staged.`);
+      // Write once per file, after every hunk is decided — an interrupt mid-file
+      // abandons the whole file rather than leaving it half-written.
+      if (edits.length > 0 && !interrupted && !dryRun) {
+        const resolved = applyHunkEdits(content, edits);
+        await writeFileContent(path, resolved, cwd);
+        if (!hasConflictMarkers(resolved)) {
+          await stageFile(path, cwd);
+          log.info(`${path}: all hunks resolved — staged with git add.`);
+        } else {
+          log.warn(`${path}: some hunks skipped — conflict markers remain, file not staged.`);
+        }
+      } else if (edits.length > 0 && dryRun) {
+        log.info(`${path}: would apply ${edits.length} hunk(s) (dry run).`);
       }
     }
+  } finally {
+    process.removeListener('SIGINT', onSigint);
   }
 
   printSummary(decisions);
