@@ -1,18 +1,23 @@
 /**
- * LLM layer for phase 1: turn a conflict hunk plus its commit history into a
- * short, plain-English narrative of what each side was trying to do.
- *
- * Environment (ANTHROPIC_API_KEY, ANTHROPIC_MODEL) is read here but loaded by
- * the CLI entrypoint via dotenv — this module never touches the filesystem.
- * The Anthropic client is injectable so getNarrative can be tested without
- * real network calls.
+ * LLM layer: turn a conflict hunk plus its commit history into a narrative,
+ * or a full structured Resolution. Provider-agnostic — the active provider
+ * (Anthropic, OpenAI, Gemini, BluesMinds) is picked from env by providers.ts,
+ * and the client is injectable so tests never hit the network. Env is read
+ * here but loaded by the CLI entrypoint via dotenv.
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import {
+  createClient,
+  detectProvider,
+  resolveModel,
+  ProviderError,
+  type NarrativeClient,
+} from './providers.js';
 import type { ConflictHunk, HunkContext, CommitInfo, Resolution } from '../types/index.js';
 import type { EnclosingContext } from './chunker.js';
 
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+export type { NarrativeClient } from './providers.js';
 
 /** Raised when the model's response cannot be parsed into the expected shape. */
 export class LLMResponseError extends Error {
@@ -23,13 +28,6 @@ export class LLMResponseError extends Error {
     super(message);
     this.name = 'LLMResponseError';
   }
-}
-
-/** Minimal surface of the Anthropic client that getNarrative depends on. */
-export interface NarrativeClient {
-  messages: {
-    create(body: Anthropic.MessageCreateParamsNonStreaming): Promise<Anthropic.Message>;
-  };
 }
 
 function formatCommits(commits: CommitInfo[]): string {
@@ -68,11 +66,14 @@ let cachedClient: NarrativeClient | undefined;
 
 function getClient(): NarrativeClient {
   if (!cachedClient) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error('ANTHROPIC_API_KEY is not set. Add it to your environment or a .env file.');
+    const provider = detectProvider();
+    if (!provider) {
+      throw new ProviderError(
+        'No LLM API key found. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY ' +
+          'in your environment or a .env file.',
+      );
     }
-    cachedClient = new Anthropic({ apiKey });
+    cachedClient = createClient(provider);
   }
   return cachedClient;
 }
@@ -82,9 +83,9 @@ async function requestText(
   prompt: string,
   maxTokens: number,
 ): Promise<string> {
-  const model = process.env.ANTHROPIC_MODEL ?? DEFAULT_MODEL;
+  const provider = detectProvider() ?? 'anthropic';
   const message = await client.messages.create({
-    model,
+    model: resolveModel(provider),
     max_tokens: maxTokens,
     messages: [{ role: 'user', content: prompt }],
   });
