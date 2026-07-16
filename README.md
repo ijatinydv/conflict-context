@@ -1,6 +1,6 @@
 # conflict-context
 
-![CI](https://github.com/OWNER/conflict-context/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/ijatinydv/conflict-context/actions/workflows/ci.yml/badge.svg)
 
 > Resolve git merge conflicts by understanding *why* each side changed — not just diffing text.
 
