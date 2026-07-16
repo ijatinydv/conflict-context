@@ -10,7 +10,23 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { runExplain } from './explain.js';
 import { runResolve } from './resolve.js';
+import { detectProvider, ProviderError } from '../core/providers.js';
 import { log } from '../utils/logger.js';
+
+/** Fail fast with one clear message when no provider key is configured. */
+function requireProvider(): boolean {
+  try {
+    if (detectProvider()) return true;
+    log.error(
+      'No LLM API key found. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY ' +
+        'in your environment or a .env file.',
+    );
+  } catch (error) {
+    log.error(error instanceof ProviderError ? error.message : String(error));
+  }
+  process.exitCode = 1;
+  return false;
+}
 
 const program = new Command();
 
@@ -26,11 +42,7 @@ program
   .option('--file <path>', 'scope to a single conflicted file')
   .action(async (options: { color?: boolean; file?: string }) => {
     if (options.color === false) chalk.level = 0;
-    if (!process.env.ANTHROPIC_API_KEY) {
-      log.error('ANTHROPIC_API_KEY is not set. Add it to your environment or a .env file.');
-      process.exitCode = 1;
-      return;
-    }
+    if (!requireProvider()) return;
     try {
       await runExplain({ file: options.file });
     } catch (error) {
@@ -53,11 +65,7 @@ program
   .option('--dry-run', 'show what would happen without writing, staging, or snapshotting')
   .action(async (options: { color?: boolean; file?: string; auto?: boolean; minConfidence?: string; dryRun?: boolean }) => {
     if (options.color === false) chalk.level = 0;
-    if (!process.env.ANTHROPIC_API_KEY) {
-      log.error('ANTHROPIC_API_KEY is not set. Add it to your environment or a .env file.');
-      process.exitCode = 1;
-      return;
-    }
+    if (!requireProvider()) return;
     const minConfidence = options.minConfidence ?? 'high';
     if (minConfidence !== 'high' && minConfidence !== 'medium' && minConfidence !== 'low') {
       log.error(`Invalid --min-confidence "${minConfidence}" — use high, medium, or low.`);
