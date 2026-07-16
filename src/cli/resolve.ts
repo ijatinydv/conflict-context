@@ -31,7 +31,7 @@ import { applyHunkEdits, hasConflictMarkers, type HunkEdit } from '../core/appli
 import { log } from '../utils/logger.js';
 import type { ConflictHunk, HunkContext, Resolution } from '../types/index.js';
 
-export type Choice = 'accept' | 'edit' | 'skip';
+export type Choice = 'accept' | 'edit' | 'skip' | 'auto';
 
 export type ProposeFn = (
   hunk: ConflictHunk,
@@ -53,6 +53,9 @@ export interface ResolveOptions {
   ask?: AskFn;
   edit?: EditFn;
   spinner?: boolean;
+  /** Apply hunks at or above minConfidence without prompting. */
+  auto?: boolean;
+  minConfidence?: Resolution['confidence'];
 }
 
 export interface HunkDecision {
@@ -69,6 +72,8 @@ const CONFIDENCE_COLOR = {
   medium: chalk.yellow,
   low: chalk.red,
 } as const;
+
+const CONFIDENCE_RANK = { low: 0, medium: 1, high: 2 } as const;
 
 async function askViaReadline(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -198,7 +203,19 @@ export async function runResolve(options: ResolveOptions = {}): Promise<HunkDeci
         `Confidence: ${paint(resolution.confidence)} — ${resolution.confidenceReason} [${classification}]`,
       );
 
-      const choice = await promptChoice(ask);
+      const minConfidence = options.minConfidence ?? 'high';
+      const autoApplicable =
+        options.auto === true &&
+        CONFIDENCE_RANK[resolution.confidence] >= CONFIDENCE_RANK[minConfidence];
+
+      let choice: Choice;
+      if (autoApplicable) {
+        choice = 'auto';
+        log.info(`Auto-applied (>= ${minConfidence} confidence).`);
+      } else {
+        choice = await promptChoice(ask);
+      }
+
       let replacement = resolution.proposedCode;
       if (choice === 'edit') replacement = await edit(resolution.proposedCode);
       if (choice !== 'skip') {
@@ -241,7 +258,10 @@ function printSummary(decisions: HunkDecision[]): void {
   for (const d of decisions) {
     log.info(`  ${d.choice.padEnd(6)}  ${d.file}:${d.startLine}-${d.endLine} (${d.confidence})`);
   }
-  const applied = decisions.filter((d) => d.applied).length;
-  const skipped = decisions.length - applied;
-  log.info(`${applied} hunk(s) applied, ${skipped} skipped. Run \`conflict-context undo\` to roll back.`);
+  const count = (c: Choice) => decisions.filter((d) => d.choice === c).length;
+  log.info(
+    `${count('auto')} auto-applied, ${count('accept')} accepted manually, ` +
+      `${count('edit')} edited, ${count('skip')} skipped. ` +
+      'Run `conflict-context undo` to roll back.',
+  );
 }
