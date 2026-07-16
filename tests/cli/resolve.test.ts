@@ -1,86 +1,104 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execa } from 'execa';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runResolve } from '../../src/cli/resolve.js';
+import { hasSnapshot } from '../../src/git/snapshot.js';
 import type { Resolution } from '../../src/types/index.js';
+
+const resolution = (code: string): Resolution => ({
+  narrative: 'mock narrative',
+  proposedCode: code,
+  confidence: 'medium',
+  confidenceReason: 'mock',
+});
 
 describe('runResolve', () => {
   let repo: string;
   const file = 'calc.js';
 
   const git = (args: string[]) => execa('git', args, { cwd: repo });
+  const silenceLogs = () => vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     repo = await mkdtemp(join(tmpdir(), 'cc-resolve-'));
     await git(['init', '-b', 'main']);
     await git(['config', 'user.email', 'test@test.local']);
     await git(['config', 'user.name', 'Test']);
     await git(['config', 'commit.gpgsign', 'false']);
 
-    await writeFile(join(repo, file), 'function total(a, b) {\n  return a + b;\n}\n');
+    // Two independently-edited regions => two conflict hunks in one file.
+    const base = ['function a() {', '  return 1;', '}', '', '// spacer 1', '// spacer 2', '// spacer 3', '', 'function b() {', '  return 2;', '}'];
+    await writeFile(join(repo, file), base.join('\n'));
     await git(['add', file]);
-    await git(['commit', '-m', 'feat: add total']);
+    await git(['commit', '-m', 'base']);
 
     await git(['checkout', '-b', 'feature']);
-    await writeFile(join(repo, file), 'function total(a, b) {\n  return Math.round(a + b);\n}\n');
-    await git(['commit', '-am', 'feat: round totals']);
+    await writeFile(
+      join(repo, file),
+      ['function a() {', '  return 10;', '}', '', '// spacer 1', '// spacer 2', '// spacer 3', '', 'function b() {', '  return 20;', '}'].join('\n'),
+    );
+    await git(['commit', '-am', 'feature: tens']);
 
     await git(['checkout', 'main']);
-    await writeFile(join(repo, file), 'function total(a, b) {\n  return (a + b) * 1.2;\n}\n');
-    await git(['commit', '-am', 'feat: add 20% tax to totals']);
-
+    await writeFile(
+      join(repo, file),
+      ['function a() {', '  return 100;', '}', '', '// spacer 1', '// spacer 2', '// spacer 3', '', 'function b() {', '  return 200;', '}'].join('\n'),
+    );
+    await git(['commit', '-am', 'main: hundreds']);
     await git(['merge', 'feature']).catch(() => undefined);
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await rm(repo, { recursive: true, force: true });
   });
 
-  it('proposes per hunk, honours user choices, and writes nothing to disk', async () => {
-    const resolution: Resolution = {
-      narrative: 'One side rounds, the other taxes.',
-      proposedCode: '  return Math.round((a + b) * 1.2);',
-      confidence: 'medium',
-      confidenceReason: 'Combined both operations.',
-    };
-    const propose = vi.fn().mockResolvedValue(resolution);
-    const ask = vi.fn().mockResolvedValueOnce('x').mockResolvedValueOnce('a'); // invalid then accept
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  it('applies accepted hunks, stages fully-resolved files, and snapshots first', async () => {
+    const propose = vi.fn().mockResolvedValue(resolution('  return 42;'));
+    const ask = vi.fn().mockResolvedValue('a');
+    const logSpy = silenceLogs();
 
-    const before = await execa('git', ['status', '--porcelain'], { cwd: repo });
     const decisions = await runResolve({ cwd: repo, propose, ask, spinner: false });
-    const after = await execa('git', ['status', '--porcelain'], { cwd: repo });
 
-    expect(decisions).toHaveLength(1);
-    expect(decisions[0]).toMatchObject({ file, choice: 'accept', confidence: 'medium' });
-    expect(propose).toHaveBeenCalledOnce();
-    // classification hint is passed through to the proposal
-    expect(propose.mock.calls[0]![3]).toBe('logic-conflict');
-    // re-asks after invalid input
-    expect(ask).toHaveBeenCalledTimes(2);
-    // nothing applied: working tree unchanged
-    expect(after.stdout).toBe(before.stdout);
+    expect(decisions).toHaveLength(2);
+    expect(decisions.every((d) => d.applied)).toBe(true);
+    expect(await hasSnapshot(repo)).toBe(true);
 
-    const printed = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
-    expect(printed).toContain('One side rounds, the other taxes.');
-    expect(printed).toContain('Summary');
+    const content = await readFile(join(repo, file), 'utf8');
+    expect(content).not.toContain('<<<<<<<');
+    expect(content.match(/return 42;/g)).toHaveLength(2);
+    // fully resolved => staged, no unmerged entries left
+    expect((await git(['ls-files', '-u'])).stdout).toBe('');
     logSpy.mockRestore();
   });
 
-  it('records skip decisions', async () => {
-    const propose = vi.fn().mockResolvedValue({
-      narrative: 'n',
-      proposedCode: 'c',
-      confidence: 'low',
-      confidenceReason: 'r',
-    });
-    const ask = vi.fn().mockResolvedValue('s');
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  it('leaves markers and staging intact for skipped hunks (partial acceptance)', async () => {
+    const propose = vi.fn().mockResolvedValue(resolution('  return 42;'));
+    const ask = vi.fn().mockResolvedValueOnce('a').mockResolvedValueOnce('s');
+    const logSpy = silenceLogs();
 
     const decisions = await runResolve({ cwd: repo, propose, ask, spinner: false });
-    expect(decisions[0]?.choice).toBe('skip');
+
+    expect(decisions.map((d) => d.choice)).toEqual(['accept', 'skip']);
+    const content = await readFile(join(repo, file), 'utf8');
+    expect(content).toContain('return 42;');
+    expect(content).toContain('<<<<<<<'); // second hunk untouched
+    expect((await git(['ls-files', '-u'])).stdout).not.toBe(''); // still unmerged
+    logSpy.mockRestore();
+  });
+
+  it('routes edit choices through the editor function before applying', async () => {
+    const propose = vi.fn().mockResolvedValue(resolution('  return 42;'));
+    const ask = vi.fn().mockResolvedValueOnce('e').mockResolvedValueOnce('s');
+    const edit = vi.fn().mockResolvedValue('  return 777; // hand-edited');
+    const logSpy = silenceLogs();
+
+    await runResolve({ cwd: repo, propose, ask, edit, spinner: false });
+
+    expect(edit).toHaveBeenCalledWith('  return 42;');
+    const content = await readFile(join(repo, file), 'utf8');
+    expect(content).toContain('return 777; // hand-edited');
     logSpy.mockRestore();
   });
 });
