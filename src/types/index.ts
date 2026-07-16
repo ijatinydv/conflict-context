@@ -53,3 +53,11 @@ export interface Resolution {
   confidence: 'high' | 'medium' | 'low';
   confidenceReason: string;
 }
+
+/** A decided replacement for one conflict region, ready to splice into a file. */
+export interface HunkEdit {
+  /** 1-based inclusive range of the conflict, `<<<<<<<` through `>>>>>>>`. */
+  startLine: number;
+  endLine: number;
+  replacement: string;
+}

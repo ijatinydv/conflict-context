@@ -4,12 +4,7 @@
  * and write the result — so multi-hunk edge cases are unit-testable.
  */
 
-export interface HunkEdit {
-  /** 1-based inclusive range of the conflict, `<<<<<<<` through `>>>>>>>`. */
-  startLine: number;
-  endLine: number;
-  replacement: string;
-}
+import type { HunkEdit } from '../types/index.js';
 
 /**
  * Applies edits to `content`. Edits are processed bottom-up so earlier

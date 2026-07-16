@@ -27,10 +27,10 @@ import { getHunkContext } from '../core/history.js';
 import { getEnclosingContext, type EnclosingContext } from '../core/chunker.js';
 import { getResolution } from '../core/llm.js';
 import { classifyHunk, applyConfidenceFloor } from '../core/confidence.js';
-import { applyHunkEdits, hasConflictMarkers, type HunkEdit } from '../core/applier.js';
+import { applyHunkEdits, hasConflictMarkers } from '../core/applier.js';
 import { renderDiff } from '../utils/diffRender.js';
 import { log } from '../utils/logger.js';
-import type { ConflictHunk, HunkContext, Resolution } from '../types/index.js';
+import type { ConflictHunk, HunkContext, HunkEdit, Resolution } from '../types/index.js';
 
 export type Choice = 'accept' | 'edit' | 'skip' | 'auto';
 
