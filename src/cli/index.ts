@@ -50,7 +50,8 @@ program
     'confidence threshold for --auto: high, medium, or low',
     'high',
   )
-  .action(async (options: { color?: boolean; file?: string; auto?: boolean; minConfidence?: string }) => {
+  .option('--dry-run', 'show what would happen without writing, staging, or snapshotting')
+  .action(async (options: { color?: boolean; file?: string; auto?: boolean; minConfidence?: string; dryRun?: boolean }) => {
     if (options.color === false) chalk.level = 0;
     if (!process.env.ANTHROPIC_API_KEY) {
       log.error('ANTHROPIC_API_KEY is not set. Add it to your environment or a .env file.');
@@ -64,7 +65,7 @@ program
       return;
     }
     try {
-      await runResolve({ file: options.file, auto: options.auto, minConfidence });
+      await runResolve({ file: options.file, auto: options.auto, minConfidence, dryRun: options.dryRun });
     } catch (error) {
       log.error(error instanceof Error ? error.message : String(error));
       process.exitCode = 1;

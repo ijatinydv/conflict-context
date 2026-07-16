@@ -180,3 +180,53 @@ describe('runResolve --auto', () => {
     logSpy.mockRestore();
   });
 });
+
+describe('runResolve --dry-run', () => {
+  let repo: string;
+  const file = 'calc.js';
+  const git = (args: string[]) => execa('git', args, { cwd: repo });
+
+  beforeEach(async () => {
+    repo = await mkdtemp(join(tmpdir(), 'cc-dry-'));
+    await git(['init', '-b', 'main']);
+    await git(['config', 'user.email', 'test@test.local']);
+    await git(['config', 'user.name', 'Test']);
+    await git(['config', 'commit.gpgsign', 'false']);
+    await writeFile(join(repo, file), 'function a() {\n  return 1;\n}\n');
+    await git(['add', file]);
+    await git(['commit', '-m', 'base']);
+    await git(['checkout', '-b', 'feature']);
+    await writeFile(join(repo, file), 'function a() {\n  return 10;\n}\n');
+    await git(['commit', '-am', 'feature']);
+    await git(['checkout', 'main']);
+    await writeFile(join(repo, file), 'function a() {\n  return 100;\n}\n');
+    await git(['commit', '-am', 'main']);
+    await git(['merge', 'feature']).catch(() => undefined);
+  });
+
+  afterEach(async () => {
+    await rm(repo, { recursive: true, force: true });
+  });
+
+  it('writes nothing, stages nothing, and creates no snapshot', async () => {
+    const before = await readFile(join(repo, file), 'utf8');
+    const propose = vi.fn().mockResolvedValue({ ...resolution('  return 42;'), confidence: 'high' });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    const decisions = await runResolve({
+      cwd: repo,
+      propose,
+      ask: vi.fn(),
+      spinner: false,
+      auto: true,
+      dryRun: true,
+    });
+
+    expect(decisions[0]?.choice).toBe('auto');
+    expect(decisions[0]?.applied).toBe(false);
+    expect(await readFile(join(repo, file), 'utf8')).toBe(before);
+    expect(await hasSnapshot(repo)).toBe(false);
+    expect((await git(['ls-files', '-u'])).stdout).not.toBe('');
+    logSpy.mockRestore();
+  });
+});
