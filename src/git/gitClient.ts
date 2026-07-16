@@ -45,6 +45,9 @@ async function runGit(args: string[], cwd: string = process.cwd()): Promise<stri
   }
 }
 
+/** For sibling modules in src/git/ only — everything else goes through the typed API. */
+export { runGit };
+
 async function exists(path: string): Promise<boolean> {
   try {
     await stat(path);
@@ -58,6 +61,8 @@ async function gitDir(cwd: string = process.cwd()): Promise<string> {
   const dir = await runGit(['rev-parse', '--absolute-git-dir'], cwd);
   return dir.trim();
 }
+
+export { gitDir };
 
 /**
  * True when a merge or rebase is mid-flight. A merge leaves MERGE_HEAD; an

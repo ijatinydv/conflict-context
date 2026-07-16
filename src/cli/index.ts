@@ -59,4 +59,21 @@ program
     }
   });
 
+program
+  .command('undo')
+  .description('Restore conflicted files to their pre-resolve state from the safety snapshot.')
+  .option('--no-color', 'disable colored output')
+  .action(async (options: { color?: boolean }) => {
+    if (options.color === false) chalk.level = 0;
+    try {
+      const { restoreSnapshot } = await import('../git/snapshot.js');
+      const restored = await restoreSnapshot();
+      log.heading('Restored from snapshot:');
+      for (const path of restored) log.info(`  ${path} — conflict markers and staging state are back`);
+    } catch (error) {
+      log.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+  });
+
 program.parseAsync(process.argv);
