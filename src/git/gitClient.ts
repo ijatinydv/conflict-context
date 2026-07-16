@@ -6,7 +6,7 @@
  */
 
 import { execa } from 'execa';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CommitInfo } from '../types/index.js';
 
@@ -104,6 +104,18 @@ export async function getFileContent(
   cwd: string = process.cwd(),
 ): Promise<string> {
   return readFile(join(cwd, filePath), 'utf8');
+}
+
+export async function writeFileContent(
+  filePath: string,
+  content: string,
+  cwd: string = process.cwd(),
+): Promise<void> {
+  await writeFile(join(cwd, filePath), content);
+}
+
+export async function stageFile(filePath: string, cwd: string = process.cwd()): Promise<void> {
+  await runGit(['add', '--', filePath], cwd);
 }
 
 function parseLog(stdout: string): CommitInfo[] {
