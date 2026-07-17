@@ -149,7 +149,7 @@ export async function runResolve(options: ResolveOptions = {}): Promise<HunkDeci
 
   if (files.length > 0 && !dryRun) {
     await createSnapshot(cwd);
-    log.info('Safety snapshot created — `conflict-context undo` restores the pre-resolve state.');
+    log.info('Safety snapshot created — `cctx undo` restores the pre-resolve state.');
   }
   if (dryRun) log.info('Dry run: no files will be written, staged, or snapshotted.');
 
@@ -305,6 +305,6 @@ function printSummary(decisions: HunkDecision[]): void {
   log.info(
     `${count('auto')} auto-applied, ${count('accept')} accepted manually, ` +
       `${count('edit')} edited, ${count('skip')} skipped. ` +
-      'Run `conflict-context undo` to roll back.',
+      'Run `cctx undo` to roll back.',
   );
 }

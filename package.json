@@ -4,7 +4,8 @@
   "description": "AI-assisted git conflict resolver that reconstructs why each side changed before proposing a merge.",
   "type": "module",
   "bin": {
-    "conflict-context": "./dist/cli/index.js"
+    "conflict-context": "./dist/cli/index.js",
+    "cctx": "./dist/cli/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

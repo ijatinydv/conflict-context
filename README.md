@@ -1,4 +1,4 @@
-# conflict-context
+# conflict-context (`cctx`)
 
 ![CI](https://github.com/ijatinydv/conflict-context/actions/workflows/ci.yml/badge.svg)
 
@@ -10,6 +10,9 @@ context**: you no longer remember why either side made its change. Every AI merg
 you two versions of a hunk and asks you to choose. `conflict-context` first reconstructs the
 intent behind each side from commit history and code structure, explains it in plain English,
 and only then proposes a merge — with a confidence score you can gate on.
+
+Installed as both `conflict-context` and the short alias **`cctx`** — every example below uses
+`cctx`, both work identically.
 
 ## Before / after
 
@@ -24,7 +27,7 @@ What git gives you:
 >>>>>>> feature
 ```
 
-What `conflict-context resolve` gives you:
+What `cctx resolve` gives you:
 
 ```
 parser.js  (lines 2-7) — hunk 1/1
@@ -46,26 +49,41 @@ Confidence: high — Both changes are complementary and compose cleanly. [logic-
 
 ```
 npm install -g conflict-context
-export ANTHROPIC_API_KEY=sk-...        # or put it in .env
 ```
 
-Optional: set `ANTHROPIC_MODEL` to override the default model.
+Then configure **one** LLM provider key (environment variable or a `.env` file in your repo):
+
+| Provider | Key | Model override (optional) |
+| --- | --- | --- |
+| Anthropic | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL` (default `claude-sonnet-4-6`) |
+| OpenAI | `OPENAI_API_KEY` | `OPENAI_MODEL` (default `gpt-4o`) |
+| Gemini | `GEMINI_API_KEY` | `GEMINI_MODEL` (default `gemini-2.0-flash`) |
+
+Keys are detected in that order; set `LLM_PROVIDER` to force one explicitly.
 
 ## Usage
 
 Run inside a repo that is mid-merge or mid-rebase.
 
-### `conflict-context explain`
+### `cctx explain`
 
 Prints a plain-English narrative per conflicted hunk — what each side was trying to do and
 whether the changes are related. Read-only, touches nothing.
 
-### `conflict-context resolve`
+### `cctx resolve`
 
 Proposes a merged resolution per hunk with colorized diffs against both sides and a
-confidence score, then prompts **[a]ccept / [e]dit / [s]kip**. Accepted hunks are written to
-disk; fully-resolved files are `git add`ed automatically. A safety snapshot is always taken
-first.
+confidence score, then asks you to choose:
+
+| Key | Choice | What happens |
+| --- | --- | --- |
+| `a` | **accept** | the proposed code replaces this conflict when the file is written |
+| `e` | **edit** | the proposal opens in `$EDITOR` (or an inline prompt, end with a lone `.` line); your edited version is applied instead |
+| `s` | **skip** | this hunk is left exactly as-is — markers stay, file stays unmerged |
+
+Files are written once, after all their hunks are decided. Files with no markers left are
+`git add`ed automatically; files with skipped hunks are left unstaged. A safety snapshot is
+always taken first.
 
 | Flag | Effect |
 | --- | --- |
@@ -75,7 +93,7 @@ first.
 | `--file <path>` | scope to one conflicted file |
 | `--no-color` | plain output |
 
-### `conflict-context undo`
+### `cctx undo`
 
 Restores every touched file — content *and* unmerged index state — to exactly how it was
 before `resolve` ran. Works even mid-rebase; the snapshot never disturbs git's merge
@@ -90,6 +108,7 @@ machinery.
 | Offline heuristics ground the confidence score | ✅ formatting/imports/renames | ❌ | ❌ |
 | Auto-apply with a confidence gate | ✅ `--auto --min-confidence` | ➖ manual accept | ➖ varies |
 | Undo that restores unmerged index state | ✅ `undo` | ➖ editor undo | ❌ |
+| Bring your own provider (Anthropic / OpenAI / Gemini) | ✅ | ❌ vendor-fixed | ➖ varies |
 | Works in CI / terminal, no editor required | ✅ CLI | ❌ editor extension | ➖ varies |
 
 The honest caveat: editor extensions integrate with your existing UI; this is a standalone
@@ -103,8 +122,8 @@ editor.
    finds the enclosing function/method/class for each hunk.
 3. **Classify offline** — formatting-only, import-ordering, and pure-rename conflicts are
    detected heuristically before any API call, and floor the confidence score.
-4. **Propose** — Claude gets both sides, both histories, and the AST context, and returns a
-   strict-JSON resolution with narrative and confidence.
+4. **Propose** — the model gets both sides, both histories, and the AST context, and returns
+   a strict-JSON resolution with narrative and confidence.
 5. **Apply safely** — snapshot first, write whole files only after all their hunks are
    decided, stage only marker-free files, `undo` rolls everything back.
 
