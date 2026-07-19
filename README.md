@@ -2,7 +2,10 @@
 
 ![conflict-context — resolve git merge conflicts by understanding why each side changed](https://raw.githubusercontent.com/ijatinydv/conflict-resolver/main/assets/banner.png)
 
-![CI](https://github.com/ijatinydv/conflict-context/actions/workflows/ci.yml/badge.svg)
+[![npm version](https://img.shields.io/npm/v/conflict-context.svg)](https://www.npmjs.com/package/conflict-context)
+[![CI](https://github.com/ijatinydv/conflict-resolver/actions/workflows/ci.yml/badge.svg)](https://github.com/ijatinydv/conflict-resolver/actions/workflows/ci.yml)
+[![node](https://img.shields.io/node/v/conflict-context.svg)](https://nodejs.org)
+[![license](https://img.shields.io/npm/l/conflict-context.svg)](./LICENSE)
 
 > Resolve git merge conflicts by understanding *why* each side changed — not just diffing text.
 
@@ -12,9 +15,6 @@ context**: you no longer remember why either side made its change. Every AI merg
 you two versions of a hunk and asks you to choose. `conflict-context` first reconstructs the
 intent behind each side from commit history and code structure, explains it in plain English,
 and only then proposes a merge — with a confidence score you can gate on.
-
-Installed as both `conflict-context` and the short alias **`cctx`** — every example below uses
-`cctx`, both work identically.
 
 ## Before / after
 
@@ -49,11 +49,17 @@ Confidence: high — Both changes are complementary and compose cleanly. [logic-
 
 ## Install
 
+Requires **Node.js 20+** and **git** on your `PATH`.
+
 ```
 npm install -g conflict-context
 ```
 
-Then configure **one** LLM provider key (environment variable or a `.env` file in your repo):
+This installs two commands — `conflict-context` and the short alias **`cctx`** — that work
+identically. Every example below uses `cctx`.
+
+Then configure **one** LLM provider key, via an environment variable or a `.env` file in the
+repo you run it from:
 
 | Provider | Key | Model override (optional) |
 | --- | --- | --- |
@@ -61,7 +67,29 @@ Then configure **one** LLM provider key (environment variable or a `.env` file i
 | OpenAI | `OPENAI_API_KEY` | `OPENAI_MODEL` (default `gpt-4o`) |
 | Gemini | `GEMINI_API_KEY` | `GEMINI_MODEL` (default `gemini-2.0-flash`) |
 
-Keys are detected in that order; set `LLM_PROVIDER` to force one explicitly.
+Keys are auto-detected in that order; set `LLM_PROVIDER` to force one explicitly. Your key is
+read locally and sent only to the provider you chose — it never passes through any server of
+ours.
+
+## Quick start
+
+```bash
+# 1. install once
+npm install -g conflict-context
+
+# 2. point it at a provider (any one of the three)
+echo "ANTHROPIC_API_KEY=sk-..." > .env
+
+# 3. hit a conflict, then understand it before touching a line
+git merge feature        # ...CONFLICT
+cctx explain             # plain-English: what each side was doing, and why
+
+# 4. resolve interactively, with a confidence score per hunk
+cctx resolve             # accept / edit / skip each proposal
+
+# 5. changed your mind? roll back everything resolve touched
+cctx undo
+```
 
 ## Usage
 
@@ -132,12 +160,16 @@ editor.
 ## Development
 
 ```
+git clone https://github.com/ijatinydv/conflict-resolver
+cd conflict-resolver
 npm install
 npm run build && npm test && npm run lint
+npm link            # try the cctx command against a local checkout
 ```
 
-See `CLAUDE.md` for project conventions.
+Issues and pull requests welcome at
+[github.com/ijatinydv/conflict-resolver](https://github.com/ijatinydv/conflict-resolver).
 
 ## License
 
-MIT
+[MIT](./LICENSE) © ijatinydv

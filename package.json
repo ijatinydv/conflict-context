@@ -20,10 +20,26 @@
     "git",
     "merge",
     "conflict",
+    "rebase",
+    "merge-conflict",
     "ai",
-    "cli"
+    "llm",
+    "cli",
+    "devtools"
   ],
   "license": "MIT",
+  "author": "ijatinydv",
+  "homepage": "https://github.com/ijatinydv/conflict-resolver#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ijatinydv/conflict-resolver.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ijatinydv/conflict-resolver/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",
     "chalk": "^5.3.0",
