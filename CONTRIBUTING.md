@@ -31,7 +31,7 @@ You don't have to write code to help:
 - **Improve docs** — README, this guide, code comments, or examples.
 - **Add language support** — the AST chunker currently ships with the JS/TS grammar only;
   wiring up another `tree-sitter` grammar is a great first contribution.
-- **Fix a bug or build a feature** — check the [issues](https://github.com/ijatinydv/conflict-resolver/issues)
+- **Fix a bug or build a feature** — check the [issues](https://github.com/ijatinydv/conflict-context/issues)
   for anything labeled `good first issue` or `help wanted`.
 
 If you're planning a large change, open an issue first so we can agree on the approach before
@@ -43,11 +43,11 @@ You'll need **Node.js 20 or newer** and **git** on your `PATH`.
 
 ```bash
 # 1. Fork the repo on GitHub, then clone your fork
-git clone https://github.com/<your-username>/conflict-resolver
-cd conflict-resolver
+git clone https://github.com/<your-username>/conflict-context
+cd conflict-context
 
 # 2. Add the upstream remote so you can keep your fork in sync
-git remote add upstream https://github.com/ijatinydv/conflict-resolver
+git remote add upstream https://github.com/ijatinydv/conflict-context
 
 # 3. Install dependencies
 npm install
@@ -191,7 +191,7 @@ to it so enclosing-function detection works there too.
 
 ## Reporting bugs
 
-Open an [issue](https://github.com/ijatinydv/conflict-resolver/issues) with:
+Open an [issue](https://github.com/ijatinydv/conflict-context/issues) with:
 
 - What you ran (the exact `cctx` command and flags).
 - What you expected vs. what happened (include the terminal output).

@@ -29,13 +29,13 @@
   ],
   "license": "MIT",
   "author": "ijatinydv",
-  "homepage": "https://github.com/ijatinydv/conflict-resolver#readme",
+  "homepage": "https://github.com/ijatinydv/conflict-context#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ijatinydv/conflict-resolver.git"
+    "url": "git+https://github.com/ijatinydv/conflict-context.git"
   },
   "bugs": {
-    "url": "https://github.com/ijatinydv/conflict-resolver/issues"
+    "url": "https://github.com/ijatinydv/conflict-context/issues"
   },
   "engines": {
     "node": ">=20"

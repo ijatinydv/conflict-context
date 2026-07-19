@@ -1,9 +1,9 @@
 # conflict-context (`cctx`)
 
-![conflict-context — resolve git merge conflicts by understanding why each side changed](https://raw.githubusercontent.com/ijatinydv/conflict-resolver/main/assets/banner.png)
+![conflict-context — resolve git merge conflicts by understanding why each side changed](https://raw.githubusercontent.com/ijatinydv/conflict-context/main/assets/banner.png)
 
 [![npm version](https://img.shields.io/npm/v/conflict-context.svg)](https://www.npmjs.com/package/conflict-context)
-[![CI](https://github.com/ijatinydv/conflict-resolver/actions/workflows/ci.yml/badge.svg)](https://github.com/ijatinydv/conflict-resolver/actions/workflows/ci.yml)
+[![CI](https://github.com/ijatinydv/conflict-context/actions/workflows/ci.yml/badge.svg)](https://github.com/ijatinydv/conflict-context/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/conflict-context.svg)](./LICENSE)
 
 > Resolve git merge conflicts by understanding *why* each side changed — not just diffing text.
@@ -159,7 +159,7 @@ editor.
 ## Contributing
 
 Issues and pull requests are welcome. See
-[CONTRIBUTING.md](https://github.com/ijatinydv/conflict-resolver/blob/main/CONTRIBUTING.md) for
+[CONTRIBUTING.md](https://github.com/ijatinydv/conflict-context/blob/main/CONTRIBUTING.md) for
 local setup, project layout, conventions, and the PR checklist.
 
 ## License
