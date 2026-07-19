@@ -1,0 +1,77 @@
+<svg width="1280" height="400" viewBox="0 0 1280 400" fill="none" xmlns="http://www.w3.org/2000/svg" font-family="'SF Mono','JetBrains Mono','Fira Code',ui-monospace,Menlo,Consolas,monospace">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#161b2e"/>
+    </linearGradient>
+    <linearGradient id="ours" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="theirs" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <linearGradient id="merged" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#fbbf24"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="400" fill="url(#bg)"/>
+  <rect width="1280" height="400" fill="none"/>
+
+  <!-- subtle grid dots -->
+  <g fill="#ffffff" opacity="0.03">
+    <circle cx="880" cy="60" r="2"/><circle cx="940" cy="60" r="2"/><circle cx="1000" cy="60" r="2"/>
+    <circle cx="1060" cy="60" r="2"/><circle cx="1120" cy="60" r="2"/><circle cx="1180" cy="60" r="2"/>
+    <circle cx="880" cy="340" r="2"/><circle cx="940" cy="340" r="2"/><circle cx="1000" cy="340" r="2"/>
+    <circle cx="1060" cy="340" r="2"/><circle cx="1120" cy="340" r="2"/><circle cx="1180" cy="340" r="2"/>
+  </g>
+
+  <!-- LEFT: title block -->
+  <text x="80" y="150" font-size="64" font-weight="700" fill="#e6edf3">conflict-context</text>
+
+  <!-- cctx pill -->
+  <rect x="82" y="176" width="118" height="40" rx="20" fill="#1f2937" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="141" y="203" font-size="24" font-weight="700" fill="#fbbf24" text-anchor="middle">cctx</text>
+
+  <text x="80" y="272" font-size="25" fill="#8b98a5">Resolve git merge conflicts by understanding</text>
+  <text x="80" y="308" font-size="25" fill="#8b98a5"><tspan fill="#22d3ee" font-weight="700">why</tspan> each side changed — not just diffing text.</text>
+
+  <!-- RIGHT: branch merge illustration -->
+  <g transform="translate(0,0)" stroke-width="6" fill="none" stroke-linecap="round">
+    <!-- ours branch (top) curving into center -->
+    <path d="M900 120 H1010 Q1060 120 1060 175 V185" stroke="url(#ours)"/>
+    <!-- theirs branch (bottom) curving into center -->
+    <path d="M900 280 H1010 Q1060 280 1060 225 V215" stroke="url(#theirs)"/>
+    <!-- merged trunk out -->
+    <path d="M1060 200 H1170" stroke="url(#merged)"/>
+  </g>
+
+  <!-- ours node -->
+  <circle cx="900" cy="120" r="14" fill="url(#ours)" filter="url(#glow)"/>
+  <text x="900" y="96" font-size="17" fill="#c4b5fd" text-anchor="middle" font-weight="700">HEAD</text>
+
+  <!-- theirs node -->
+  <circle cx="900" cy="280" r="14" fill="url(#theirs)" filter="url(#glow)"/>
+  <text x="900" y="316" font-size="17" fill="#7dd3fc" text-anchor="middle" font-weight="700">incoming</text>
+
+  <!-- merge node -->
+  <circle cx="1060" cy="200" r="18" fill="#161b2e" stroke="url(#merged)" stroke-width="5"/>
+
+  <!-- resolved checkmark node -->
+  <circle cx="1185" cy="200" r="26" fill="url(#merged)" filter="url(#glow)"/>
+  <path d="M1173 200 l8 9 l16 -18" stroke="#0d1117" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- faded conflict markers behind the merge, resolving away -->
+  <g font-size="20" font-weight="700" opacity="0.5">
+    <text x="960" y="150" fill="#f97316">&lt;&lt;&lt;&lt;&lt;&lt;&lt;</text>
+    <text x="978" y="205" fill="#64748b">=======</text>
+    <text x="960" y="262" fill="#38bdf8">&gt;&gt;&gt;&gt;&gt;&gt;&gt;</text>
+  </g>
+</svg>

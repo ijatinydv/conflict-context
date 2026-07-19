@@ -1,5 +1,7 @@
 # conflict-context (`cctx`)
 
+![conflict-context — resolve git merge conflicts by understanding why each side changed](https://raw.githubusercontent.com/ijatinydv/conflict-resolver/main/assets/banner.png)
+
 ![CI](https://github.com/ijatinydv/conflict-context/actions/workflows/ci.yml/badge.svg)
 
 > Resolve git merge conflicts by understanding *why* each side changed — not just diffing text.
