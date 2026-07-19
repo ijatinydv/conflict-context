@@ -4,7 +4,6 @@
 
 [![npm version](https://img.shields.io/npm/v/conflict-context.svg)](https://www.npmjs.com/package/conflict-context)
 [![CI](https://github.com/ijatinydv/conflict-resolver/actions/workflows/ci.yml/badge.svg)](https://github.com/ijatinydv/conflict-resolver/actions/workflows/ci.yml)
-[![node](https://img.shields.io/node/v/conflict-context.svg)](https://nodejs.org)
 [![license](https://img.shields.io/npm/l/conflict-context.svg)](./LICENSE)
 
 > Resolve git merge conflicts by understanding *why* each side changed — not just diffing text.
