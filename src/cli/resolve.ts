@@ -24,51 +24,22 @@ import {
 import { createSnapshot } from '../git/snapshot.js';
 import { parseConflicts, ConflictParseError } from '../core/detector.js';
 import { getHunkContext } from '../core/history.js';
-import { getEnclosingContext, type EnclosingContext } from '../core/chunker.js';
+import { getEnclosingContext } from '../core/chunker.js';
 import { getResolution } from '../core/llm.js';
 import { classifyHunk, applyConfidenceFloor } from '../core/confidence.js';
 import { applyHunkEdits, hasConflictMarkers } from '../core/applier.js';
 import { renderDiff } from '../utils/diffRender.js';
 import { log } from '../utils/logger.js';
-import type { ConflictHunk, HunkContext, HunkEdit, Resolution } from '../types/index.js';
+import type {
+  AskFn,
+  Choice,
+  ConflictHunk,
+  HunkDecision,
+  HunkEdit,
+  ResolveOptions,
+  Resolution,
+} from '../types/index.js';
 
-export type Choice = 'accept' | 'edit' | 'skip' | 'auto';
-
-export type ProposeFn = (
-  hunk: ConflictHunk,
-  context: HunkContext,
-  astContext: EnclosingContext,
-  classificationHint?: string,
-) => Promise<Resolution>;
-
-/** Asks the user for a choice; injectable so tests can script answers. */
-export type AskFn = (question: string) => Promise<string>;
-
-/** Lets the user rework proposed code; injectable so tests avoid $EDITOR. */
-export type EditFn = (proposedCode: string) => Promise<string>;
-
-export interface ResolveOptions {
-  cwd?: string;
-  file?: string;
-  propose?: ProposeFn;
-  ask?: AskFn;
-  edit?: EditFn;
-  spinner?: boolean;
-  /** Apply hunks at or above minConfidence without prompting. */
-  auto?: boolean;
-  minConfidence?: Resolution['confidence'];
-  /** Show what would happen without writing files, staging, or snapshotting. */
-  dryRun?: boolean;
-}
-
-export interface HunkDecision {
-  file: string;
-  startLine: number;
-  endLine: number;
-  choice: Choice;
-  confidence: Resolution['confidence'];
-  applied: boolean;
-}
 
 const CONFIDENCE_COLOR = {
   high: chalk.green,

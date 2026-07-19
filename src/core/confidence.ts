@@ -5,13 +5,8 @@
  * floors the confidence so the model can't underrate a trivially-safe merge.
  */
 
-import type { ConflictHunk, Resolution } from '../types/index.js';
+import type { ConflictClass, ConflictHunk, Resolution } from '../types/index.js';
 
-export type ConflictClass =
-  | 'formatting-only'
-  | 'import-ordering'
-  | 'pure-rename'
-  | 'logic-conflict';
 
 const CONFIDENCE_RANK = { low: 0, medium: 1, high: 2 } as const;
 

@@ -7,17 +7,15 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import {
-  createClient,
-  detectProvider,
-  resolveModel,
-  ProviderError,
-  type NarrativeClient,
-} from './providers.js';
-import type { ConflictHunk, HunkContext, CommitInfo, Resolution } from '../types/index.js';
-import type { EnclosingContext } from './chunker.js';
-
-export type { NarrativeClient } from './providers.js';
+import { createClient, detectProvider, resolveModel, ProviderError } from './providers.js';
+import type {
+  ConflictHunk,
+  HunkContext,
+  CommitInfo,
+  Resolution,
+  EnclosingContext,
+  NarrativeClient,
+} from '../types/index.js';
 
 /** Raised when the model's response cannot be parsed into the expected shape. */
 export class LLMResponseError extends Error {

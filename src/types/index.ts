@@ -1,7 +1,10 @@
 /**
  * Shared interfaces describing the data that flows between the git wrapper,
- * conflict detector, history extractor, and LLM layer. Logic-free by design.
+ * conflict detector, history extractor, LLM layer, and CLI. Logic-free by
+ * design — error classes stay with the modules that throw them.
  */
+
+import type Anthropic from '@anthropic-ai/sdk';
 
 export interface CommitInfo {
   hash: string;
@@ -60,4 +63,86 @@ export interface HunkEdit {
   startLine: number;
   endLine: number;
   replacement: string;
+}
+
+/** One line's authorship as reported by `git blame --line-porcelain`. */
+export interface BlameLine {
+  lineNumber: number;
+  hash: string;
+  author: string;
+}
+
+/** Smallest AST declaration (or raw-line fallback) enclosing a conflict. */
+export interface EnclosingContext {
+  /** AST node type, or 'fallback' when parsing was not possible. */
+  nodeType: string;
+  startLine: number;
+  endLine: number;
+  code: string;
+}
+
+/** Heuristic, offline classification of a hunk — computed before any LLM call. */
+export type ConflictClass =
+  | 'formatting-only'
+  | 'import-ordering'
+  | 'pure-rename'
+  | 'logic-conflict';
+
+export type ProviderName = 'anthropic' | 'openai' | 'gemini' | 'bluesminds';
+
+/** Minimal surface of the Anthropic client the LLM layer depends on. */
+export interface NarrativeClient {
+  messages: {
+    create(body: Anthropic.MessageCreateParamsNonStreaming): Promise<Anthropic.Message>;
+  };
+}
+
+// ── CLI orchestrator contracts ──────────────────────────────────────────────
+
+export type NarrateFn = (hunk: ConflictHunk, context: HunkContext) => Promise<string>;
+
+export interface ExplainOptions {
+  cwd?: string;
+  file?: string;
+  narrate?: NarrateFn;
+  /** Suppresses the ora spinner during tests. */
+  spinner?: boolean;
+}
+
+export type Choice = 'accept' | 'edit' | 'skip' | 'auto';
+
+export type ProposeFn = (
+  hunk: ConflictHunk,
+  context: HunkContext,
+  astContext: EnclosingContext,
+  classificationHint?: string,
+) => Promise<Resolution>;
+
+/** Asks the user for a choice; injectable so tests can script answers. */
+export type AskFn = (question: string) => Promise<string>;
+
+/** Lets the user rework proposed code; injectable so tests avoid $EDITOR. */
+export type EditFn = (proposedCode: string) => Promise<string>;
+
+export interface ResolveOptions {
+  cwd?: string;
+  file?: string;
+  propose?: ProposeFn;
+  ask?: AskFn;
+  edit?: EditFn;
+  spinner?: boolean;
+  /** Apply hunks at or above minConfidence without prompting. */
+  auto?: boolean;
+  minConfidence?: Resolution['confidence'];
+  /** Show what would happen without writing files, staging, or snapshotting. */
+  dryRun?: boolean;
+}
+
+export interface HunkDecision {
+  file: string;
+  startLine: number;
+  endLine: number;
+  choice: Choice;
+  confidence: Resolution['confidence'];
+  applied: boolean;
 }

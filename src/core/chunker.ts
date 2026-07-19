@@ -14,17 +14,11 @@ import { createRequire } from 'node:module';
 import { dirname, extname, join } from 'node:path';
 import Parser from 'web-tree-sitter';
 import { log } from '../utils/logger.js';
+import type { EnclosingContext } from '../types/index.js';
+
 
 type Language = Parser.Language;
 type Node = Parser.SyntaxNode;
-
-export interface EnclosingContext {
-  /** AST node type, or 'fallback' when parsing was not possible. */
-  nodeType: string;
-  startLine: number;
-  endLine: number;
-  code: string;
-}
 
 const require = createRequire(import.meta.url);
 

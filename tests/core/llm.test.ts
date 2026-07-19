@@ -5,10 +5,13 @@ import {
   getNarrative,
   getResolution,
   LLMResponseError,
-  type NarrativeClient,
 } from '../../src/core/llm.js';
-import type { EnclosingContext } from '../../src/core/chunker.js';
-import type { ConflictHunk, HunkContext } from '../../src/types/index.js';
+import type {
+  ConflictHunk,
+  EnclosingContext,
+  HunkContext,
+  NarrativeClient,
+} from '../../src/types/index.js';
 
 const hunk: ConflictHunk = {
   headOriginLines: ['  return "hey from main";'],

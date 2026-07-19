@@ -17,17 +17,8 @@ import { parseConflicts, ConflictParseError } from '../core/detector.js';
 import { getHunkContext } from '../core/history.js';
 import { getNarrative } from '../core/llm.js';
 import { log } from '../utils/logger.js';
-import type { ConflictHunk, HunkContext } from '../types/index.js';
+import type { ConflictHunk, ExplainOptions } from '../types/index.js';
 
-export type NarrateFn = (hunk: ConflictHunk, context: HunkContext) => Promise<string>;
-
-export interface ExplainOptions {
-  cwd?: string;
-  file?: string;
-  narrate?: NarrateFn;
-  /** Suppresses the ora spinner during tests. */
-  spinner?: boolean;
-}
 
 const NUL = String.fromCharCode(0);
 

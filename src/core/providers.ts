@@ -6,15 +6,8 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import type { NarrativeClient, ProviderName } from '../types/index.js';
 
-/** Minimal surface of the Anthropic client the LLM layer depends on. */
-export interface NarrativeClient {
-  messages: {
-    create(body: Anthropic.MessageCreateParamsNonStreaming): Promise<Anthropic.Message>;
-  };
-}
-
-export type ProviderName = 'anthropic' | 'openai' | 'gemini' | 'bluesminds';
 
 interface OpenAiCompatibleConfig {
   baseUrl: string;

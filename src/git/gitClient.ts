@@ -8,7 +8,8 @@
 import { execa } from 'execa';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { CommitInfo } from '../types/index.js';
+import type { CommitInfo, BlameLine } from '../types/index.js';
+
 
 export class GitCommandError extends Error {
   constructor(
@@ -19,12 +20,6 @@ export class GitCommandError extends Error {
     super(`git command failed: ${command}\n${stderr}`.trim());
     this.name = 'GitCommandError';
   }
-}
-
-export interface BlameLine {
-  lineNumber: number;
-  hash: string;
-  author: string;
 }
 
 /** Fields separated within a commit record; group separator between records. */
