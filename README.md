@@ -157,20 +157,11 @@ editor.
 5. **Apply safely** — snapshot first, write whole files only after all their hunks are
    decided, stage only marker-free files, `undo` rolls everything back.
 
-## Development
+## Contributing
 
-```
-git clone https://github.com/ijatinydv/conflict-resolver
-cd conflict-resolver
-npm install
-npm run build && npm test && npm run lint
-npm link            # try the cctx command against a local checkout
-```
-
-Issues and pull requests welcome at
-[github.com/ijatinydv/conflict-resolver](https://github.com/ijatinydv/conflict-resolver). See
+Issues and pull requests are welcome. See
 [CONTRIBUTING.md](https://github.com/ijatinydv/conflict-resolver/blob/main/CONTRIBUTING.md) for
-setup, project layout, conventions, and the PR checklist before you start.
+local setup, project layout, conventions, and the PR checklist.
 
 ## License
 
