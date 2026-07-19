@@ -168,7 +168,9 @@ npm link            # try the cctx command against a local checkout
 ```
 
 Issues and pull requests welcome at
-[github.com/ijatinydv/conflict-resolver](https://github.com/ijatinydv/conflict-resolver).
+[github.com/ijatinydv/conflict-resolver](https://github.com/ijatinydv/conflict-resolver). See
+[CONTRIBUTING.md](https://github.com/ijatinydv/conflict-resolver/blob/main/CONTRIBUTING.md) for
+setup, project layout, conventions, and the PR checklist before you start.
 
 ## License
 
