@@ -10,6 +10,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { runExplain } from './explain.js';
 import { runResolve } from './resolve.js';
+import { runStats } from './stats.js';
 import { detectProvider, ProviderError } from '../core/providers.js';
 import { log } from '../utils/logger.js';
 
@@ -91,6 +92,20 @@ program
       const restored = await restoreSnapshot();
       log.heading('Restored from snapshot:');
       for (const path of restored) log.info(`  ${path} — conflict markers and staging state are back`);
+    } catch (error) {
+      log.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('stats')
+  .description('Show pattern memory statistics (patterns learned, LLM calls saved, etc).')
+  .option('--no-color', 'disable colored output')
+  .action(async (options: { color?: boolean }) => {
+    if (options.color === false) chalk.level = 0;
+    try {
+      await runStats();
     } catch (error) {
       log.error(error instanceof Error ? error.message : String(error));
       process.exitCode = 1;
