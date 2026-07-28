@@ -15,6 +15,10 @@ you two versions of a hunk and asks you to choose. `conflict-context` first reco
 intent behind each side from commit history and code structure, explains it in plain English,
 and only then proposes a merge — with a confidence score you can gate on.
 
+### The killer feature: Conflict Pattern Memory 🧠
+
+**The tool learns from you.** Every resolution you accept is saved to a local pattern store (`.cctx/patterns.json`). If you hit the same kind of conflict again next week, `cctx` recognizes it and proposes your exact past resolution instantly — **zero API calls, zero cost.** Commit the patterns file to share the team's learned resolutions with everyone.
+
 ## Before / after
 
 What git gives you:
@@ -30,7 +34,6 @@ What git gives you:
 
 What `cctx resolve` gives you:
 
-```
 parser.js  (lines 2-7) — hunk 1/1
 Main hardened parse() against null input (commit "fix: guard parser against
 null input"); the feature branch normalizes output to lowercase (commit
@@ -44,6 +47,14 @@ Proposed vs OURS (HEAD):
 
 Confidence: high — Both changes are complementary and compose cleanly. [logic-conflict]
 [a]ccept / [e]dit manually / [s]kip?
+```
+
+Later, when you hit a similar conflict:
+
+```
+parser.js  (lines 2-7) — hunk 1/1
+Pattern match (a1b2c3d4): previously resolved this.
+[a]pply pattern / [r]eview with LLM / [s]kip?
 ```
 
 ## Install
@@ -86,7 +97,13 @@ cctx explain             # plain-English: what each side was doing, and why
 # 4. resolve interactively, with a confidence score per hunk
 cctx resolve             # accept / edit / skip each proposal
 
-# 5. changed your mind? roll back everything resolve touched
+# 5. commit the patterns file to share your resolutions with the team
+git add .cctx/patterns.json && git commit -m "chore: share conflict patterns"
+
+# 6. check how much time and API cost you've saved
+cctx stats
+
+# 7. changed your mind? roll back everything resolve touched
 cctx undo
 ```
 
@@ -106,9 +123,12 @@ confidence score, then asks you to choose:
 
 | Key | Choice | What happens |
 | --- | --- | --- |
-| `a` | **accept** | the proposed code replaces this conflict when the file is written |
+| `a` | **accept** / **apply** | the proposed code replaces this conflict when the file is written |
+| `r` | **review** | (pattern match only) ignore the saved pattern and ask the LLM to propose a resolution |
 | `e` | **edit** | the proposal opens in `$EDITOR` (or an inline prompt, end with a lone `.` line); your edited version is applied instead |
 | `s` | **skip** | this hunk is left exactly as-is — markers stay, file stays unmerged |
+
+**Pattern Memory:** Every accepted or edited resolution is saved to `.cctx/patterns.json`. If a future conflict hits the same file, AST node, and class with identical line fingerprints, `resolve` proposes your saved pattern instead of calling the LLM.
 
 Files are written once, after all their hunks are decided. Files with no markers left are
 `git add`ed automatically; files with skipped hunks are left unstaged. A safety snapshot is
@@ -122,6 +142,10 @@ always taken first.
 | `--file <path>` | scope to one conflicted file |
 | `--no-color` | plain output |
 
+### `cctx stats`
+
+Prints aggregate metrics about your pattern memory: how many patterns you've learned, how many LLM calls you've saved by reusing them, and which files conflict the most.
+
 ### `cctx undo`
 
 Restores every touched file — content *and* unmerged index state — to exactly how it was
@@ -133,6 +157,7 @@ machinery.
 | | conflict-context | GitLens / GitKraken AI | generic AI merge tools |
 | --- | --- | --- | --- |
 | Recovers *why* each side changed (history + blame) | ✅ core feature | ❌ diff-only view | ❌ diff-only prompt |
+| Pattern Memory learns from past resolutions | ✅ zero-cost offline | ❌ stateless | ❌ stateless |
 | AST-aware context (whole enclosing function, not ±3 lines) | ✅ tree-sitter | ➖ editor context | ❌ |
 | Offline heuristics ground the confidence score | ✅ formatting/imports/renames | ❌ | ❌ |
 | Auto-apply with a confidence gate | ✅ `--auto --min-confidence` | ➖ manual accept | ➖ varies |
