@@ -113,6 +113,16 @@ export async function stageFile(filePath: string, cwd: string = process.cwd()): 
   await runGit(['add', '--', filePath], cwd);
 }
 
+/** Reads the local git user.name; falls back to 'unknown' when not configured. */
+export async function getGitUserName(cwd: string = process.cwd()): Promise<string> {
+  try {
+    const name = await runGit(['config', 'user.name'], cwd);
+    return name.trim() || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 function parseLog(stdout: string): CommitInfo[] {
   return stdout
     .split(RECORD)
