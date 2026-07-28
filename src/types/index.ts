@@ -90,6 +90,40 @@ export type ConflictClass =
 
 export type ProviderName = 'anthropic' | 'openai' | 'gemini' | 'bluesminds';
 
+// ── Pattern memory ──────────────────────────────────────────────────────────
+
+/**
+ * One learned resolution, persisted in .cctx/patterns.json.
+ * The fingerprints are sha256 digests of the normalised line content so
+ * conflicts that are identical modulo whitespace/comments always match.
+ */
+export interface Pattern {
+  /** Deterministic id: sha256(filePath|nodeType|conflictClass|headFp|incomingFp), first 12 chars. */
+  id: string;
+  filePath: string;
+  nodeType: string;
+  conflictClass: ConflictClass;
+  headFingerprint: string;
+  incomingFingerprint: string;
+  resolvedCode: string;
+  narrative: string;
+  confidence: Resolution['confidence'];
+  acceptedAt: string;
+  acceptedBy: string;
+  /** Incremented each time this pattern is applied without calling the LLM. */
+  useCount: number;
+}
+
+export interface PatternStore {
+  version: 1;
+  patterns: Pattern[];
+}
+
+/** Returned by findMatchingPattern when a stored pattern suits the live hunk. */
+export interface PatternMatch {
+  pattern: Pattern;
+}
+
 /** Minimal surface of the Anthropic client the LLM layer depends on. */
 export interface NarrativeClient {
   messages: {
@@ -109,7 +143,7 @@ export interface ExplainOptions {
   spinner?: boolean;
 }
 
-export type Choice = 'accept' | 'edit' | 'skip' | 'auto';
+export type Choice = 'accept' | 'edit' | 'skip' | 'auto' | 'pattern';
 
 export type ProposeFn = (
   hunk: ConflictHunk,
