@@ -28,6 +28,7 @@ import { getEnclosingContext } from '../core/chunker.js';
 import { getResolution } from '../core/llm.js';
 import { classifyHunk, applyConfidenceFloor } from '../core/confidence.js';
 import { applyHunkEdits, hasConflictMarkers } from '../core/applier.js';
+import { findMatchingPattern, savePattern, incrementUseCount } from '../core/patternStore.js';
 import { renderDiff } from '../utils/diffRender.js';
 import { log } from '../utils/logger.js';
 import type {
@@ -103,6 +104,16 @@ async function promptChoice(ask: AskFn): Promise<Choice> {
   }
 }
 
+async function promptPatternChoice(ask: AskFn): Promise<'apply' | 'review' | 'skip'> {
+  for (;;) {
+    const answer = (await ask('[a]pply pattern / [r]eview with LLM / [s]kip? ')).trim().toLowerCase();
+    if (answer === 'a') return 'apply';
+    if (answer === 'r') return 'review';
+    if (answer === 's') return 'skip';
+    log.warn('Please answer a, r, or s.');
+  }
+}
+
 export async function runResolve(options: ResolveOptions = {}): Promise<HunkDecision[]> {
   const cwd = options.cwd ?? process.cwd();
   const propose = options.propose ?? getResolution;
@@ -168,64 +179,108 @@ export async function runResolve(options: ResolveOptions = {}): Promise<HunkDeci
         const classification = classifyHunk(hunk);
         const astContext = await getEnclosingContext(join(cwd, path), hunk.startLine, hunk.endLine);
 
-        const spinner = useSpinner ? ora('Proposing resolution…').start() : undefined;
-        let resolution: Resolution;
-        try {
-          resolution = await propose(hunk, context, astContext, classification);
-          spinner?.stop();
-        } catch (error) {
-          spinner?.fail('Could not propose a resolution');
-          log.error(`  ${error instanceof Error ? error.message : String(error)}`);
-          decisions.push({
-            file: path,
-            startLine: hunk.startLine,
-            endLine: hunk.endLine,
-            choice: 'skip',
-            confidence: 'low',
-            applied: false,
-          });
-          continue;
+        // 1. Check for a known pattern first.
+        let patternChoice: 'apply' | 'review' | 'skip' | undefined;
+        let finalResolution: Resolution | undefined;
+        let choice: Choice | undefined;
+        let replacement: string | undefined;
+
+        const match = await findMatchingPattern(path, hunk, astContext, classification, cwd);
+
+        if (match) {
+          log.info(`Pattern match (${match.pattern.id.slice(0, 8)}): previously resolved this.`);
+          log.narrative(match.pattern.narrative);
+          console.log();
+          log.info(renderDiff('Proposed vs OURS (HEAD):', hunk.headOriginLines.join('\n'), match.pattern.resolvedCode));
+          log.info(renderDiff('Proposed vs THEIRS (incoming):', hunk.incomingLines.join('\n'), match.pattern.resolvedCode));
+          
+          if (options.auto) {
+            patternChoice = 'apply';
+            log.info('Auto-applied pattern.');
+          } else {
+            patternChoice = await promptPatternChoice(ask);
+          }
+
+          if (patternChoice === 'apply') {
+            choice = 'pattern';
+            replacement = match.pattern.resolvedCode;
+            finalResolution = match.pattern;
+            if (!dryRun) {
+              await incrementUseCount(match.pattern.id, cwd);
+            }
+          } else if (patternChoice === 'skip') {
+            choice = 'skip';
+            finalResolution = match.pattern;
+          }
         }
 
-        resolution = applyConfidenceFloor(resolution, classification);
+        // 2. If no pattern matched, or the user chose to review, call the LLM.
+        if (choice === undefined) {
+          const spinner = useSpinner ? ora('Proposing resolution…').start() : undefined;
+          let resolution: Resolution;
+          try {
+            resolution = await propose(hunk, context, astContext, classification);
+            spinner?.stop();
+          } catch (error) {
+            spinner?.fail('Could not propose a resolution');
+            log.error(`  ${error instanceof Error ? error.message : String(error)}`);
+            decisions.push({
+              file: path,
+              startLine: hunk.startLine,
+              endLine: hunk.endLine,
+              choice: 'skip',
+              confidence: 'low',
+              applied: false,
+            });
+            continue;
+          }
 
-        log.narrative(resolution.narrative);
-        console.log();
-        log.info(
-          renderDiff(
-            'Proposed vs OURS (HEAD):',
-            hunk.headOriginLines.join('\n'),
-            resolution.proposedCode,
-          ),
-        );
-        log.info(
-          renderDiff(
-            'Proposed vs THEIRS (incoming):',
-            hunk.incomingLines.join('\n'),
-            resolution.proposedCode,
-          ),
-        );
-        const paint = CONFIDENCE_COLOR[resolution.confidence];
-        log.info(
-          `Confidence: ${paint(resolution.confidence)} — ${resolution.confidenceReason} [${classification}]`,
-        );
+          resolution = applyConfidenceFloor(resolution, classification);
+          finalResolution = resolution;
 
-        const minConfidence = options.minConfidence ?? 'high';
-        const autoApplicable =
-          options.auto === true &&
-          CONFIDENCE_RANK[resolution.confidence] >= CONFIDENCE_RANK[minConfidence];
+          log.narrative(resolution.narrative);
+          console.log();
+          log.info(
+            renderDiff(
+              'Proposed vs OURS (HEAD):',
+              hunk.headOriginLines.join('\n'),
+              resolution.proposedCode,
+            ),
+          );
+          log.info(
+            renderDiff(
+              'Proposed vs THEIRS (incoming):',
+              hunk.incomingLines.join('\n'),
+              resolution.proposedCode,
+            ),
+          );
+          const paint = CONFIDENCE_COLOR[resolution.confidence];
+          log.info(
+            `Confidence: ${paint(resolution.confidence)} — ${resolution.confidenceReason} [${classification}]`,
+          );
 
-        let choice: Choice;
-        if (autoApplicable) {
-          choice = 'auto';
-          log.info(`Auto-applied (>= ${minConfidence} confidence).`);
-        } else {
-          choice = await promptChoice(ask);
+          const minConfidence = options.minConfidence ?? 'high';
+          const autoApplicable =
+            options.auto === true &&
+            CONFIDENCE_RANK[resolution.confidence] >= CONFIDENCE_RANK[minConfidence];
+
+          if (autoApplicable) {
+            choice = 'auto';
+            log.info(`Auto-applied (>= ${minConfidence} confidence).`);
+          } else {
+            choice = await promptChoice(ask);
+          }
+
+          replacement = resolution.proposedCode;
+          if (choice === 'edit') replacement = await edit(resolution.proposedCode);
+          
+          if (choice !== 'skip' && !dryRun) {
+             // Save the LLM resolution (or hand-edited version) to the pattern store
+             await savePattern(path, hunk, astContext, classification, { ...resolution, proposedCode: replacement }, cwd);
+          }
         }
 
-        let replacement = resolution.proposedCode;
-        if (choice === 'edit') replacement = await edit(resolution.proposedCode);
-        if (choice !== 'skip') {
+        if (choice !== 'skip' && replacement !== undefined) {
           edits.push({ startLine: hunk.startLine, endLine: hunk.endLine, replacement });
         }
 
@@ -233,8 +288,8 @@ export async function runResolve(options: ResolveOptions = {}): Promise<HunkDeci
           file: path,
           startLine: hunk.startLine,
           endLine: hunk.endLine,
-          choice,
-          confidence: resolution.confidence,
+          choice: choice ?? 'skip',
+          confidence: finalResolution?.confidence ?? 'low',
           applied: choice !== 'skip' && !dryRun,
         });
       }
@@ -275,6 +330,7 @@ function printSummary(decisions: HunkDecision[]): void {
   const count = (c: Choice) => decisions.filter((d) => d.choice === c).length;
   log.info(
     `${count('auto')} auto-applied, ${count('accept')} accepted manually, ` +
+      `${count('pattern')} from pattern memory, ` +
       `${count('edit')} edited, ${count('skip')} skipped. ` +
       'Run `cctx undo` to roll back.',
   );
