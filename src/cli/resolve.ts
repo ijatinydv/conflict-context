@@ -181,7 +181,7 @@ export async function runResolve(options: ResolveOptions = {}): Promise<HunkDeci
 
         // 1. Check for a known pattern first.
         let patternChoice: 'apply' | 'review' | 'skip' | undefined;
-        let finalResolution: Resolution | undefined;
+        let finalConfidence: Resolution['confidence'] | undefined;
         let choice: Choice | undefined;
         let replacement: string | undefined;
 
@@ -204,13 +204,13 @@ export async function runResolve(options: ResolveOptions = {}): Promise<HunkDeci
           if (patternChoice === 'apply') {
             choice = 'pattern';
             replacement = match.pattern.resolvedCode;
-            finalResolution = match.pattern;
+            finalConfidence = match.pattern.confidence;
             if (!dryRun) {
               await incrementUseCount(match.pattern.id, cwd);
             }
           } else if (patternChoice === 'skip') {
             choice = 'skip';
-            finalResolution = match.pattern;
+            finalConfidence = match.pattern.confidence;
           }
         }
 
@@ -236,7 +236,7 @@ export async function runResolve(options: ResolveOptions = {}): Promise<HunkDeci
           }
 
           resolution = applyConfidenceFloor(resolution, classification);
-          finalResolution = resolution;
+          finalConfidence = resolution.confidence;
 
           log.narrative(resolution.narrative);
           console.log();
@@ -289,7 +289,7 @@ export async function runResolve(options: ResolveOptions = {}): Promise<HunkDeci
           startLine: hunk.startLine,
           endLine: hunk.endLine,
           choice: choice ?? 'skip',
-          confidence: finalResolution?.confidence ?? 'low',
+          confidence: finalConfidence ?? 'low',
           applied: choice !== 'skip' && !dryRun,
         });
       }
